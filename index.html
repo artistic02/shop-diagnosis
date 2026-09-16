@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>外卖门店诊断 · 第一版</title>
+<style>
+/* ===== 调色板（亮 / 暗，随系统或手动切换） ===== */
+:root {
+  color-scheme: light;
+  --page:    #f9f9f7;
+  --surface: #fcfcfb;
+  --ink:     #0b0b0b;
+  --ink-2:   #52514e;
+  --muted:   #898781;
+  --line:    rgba(11,11,11,0.10);
+  --grid:    #e1e0d9;
+  --accent:        #2a78d6;
+  --accent-strong: #1c5cab;
+  --funnel: #2a78d6;
+
+  --good:     #0ca30c;
+  --warning:  #fab219;
+  --serious:  #ec835a;
+  --critical: #d03b3b;
+
+  --blue:  #2a78d6;
+  --orange:#eb6834;
+  --aqua:  #1baf7a;
+  --yellow:#eda100;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page:    #0d0d0d;
+    --surface: #1a1a19;
+    --ink:     #ffffff;
+    --ink-2:   #c3c2b7;
+    --muted:   #898781;
+    --line:    rgba(255,255,255,0.10);
+    --grid:    #2c2c2a;
+    --accent:        #3987e5;
+    --accent-strong: #86b6ef;
+    --funnel: #3987e5;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page:    #0d0d0d;
+  --surface: #1a1a19;
+  --ink:     #ffffff;
+  --ink-2:   #c3c2b7;
+  --muted:   #898781;
+  --line:    rgba(255,255,255,0.10);
+  --grid:    #2c2c2a;
+  --accent:        #3987e5;
+  --accent-strong: #86b6ef;
+  --funnel: #3987e5;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  background: var(--page);
+  color: var(--ink);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 24px 20px 64px; }
+
+/* ===== 头部 ===== */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 0 20px;
+}
+header .title h1 { font-size: 22px; margin: 0; font-weight: 700; letter-spacing: .5px; }
+header .title p  { margin: 2px 0 0; color: var(--ink-2); font-size: 13px; }
+#themeBtn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+  padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13px;
+}
+#themeBtn:hover { color: var(--ink); }
+
+/* ===== 布局 ===== */
+main { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; }
+@media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+}
+.panel h2 { margin: 0 0 14px; font-size: 15px; font-weight: 700; }
+.panel .sub { font-size: 12px; color: var(--muted); margin: -8px 0 12px; }
+
+/* ===== 表单 ===== */
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 13px; color: var(--ink-2); margin-bottom: 5px; }
+.field label .unit { color: var(--muted); font-size: 12px; }
+.field input {
+  width: 100%; padding: 9px 11px; font-size: 14px;
+  background: var(--page); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 9px; outline: none;
+}
+.field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(42,120,214,.15); }
+.field input::placeholder { color: var(--muted); }
+
+.group-label {
+  font-size: 12px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .5px;
+  margin: 20px 0 10px; padding-top: 16px; border-top: 1px dashed var(--line);
+}
+
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.actions button {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+  padding: 9px 12px; border-radius: 9px; cursor: pointer; font-size: 13px;
+}
+.actions button:hover { color: var(--ink); border-color: var(--muted); }
+.actions button.primary {
+  background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
+  flex: 1 1 100%;
+}
+.actions button.primary:hover { background: var(--accent-strong); }
+
+/* ===== 结果区 ===== */
+#empty {
+  color: var(--muted); text-align: center; padding: 60px 20px; font-size: 14px;
+  border: 1px dashed var(--line); border-radius: 14px;
+}
+
+.summary { color: var(--ink-2); font-size: 13px; margin-bottom: 14px; }
+.summary b { color: var(--ink); }
+
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+@media (max-width: 640px) { .tiles { grid-template-columns: 1fr; } }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.tile .label { font-size: 12px; color: var(--muted); }
+.tile .value { font-size: 26px; font-weight: 700; margin: 4px 0 6px; font-variant-numeric: tabular-nums; }
+.tile .ref { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+
+.status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
+.status .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+/* ===== 漏斗 ===== */
+.funnel-row { display: grid; grid-template-columns: 92px 1fr 92px; gap: 12px; align-items: center; margin-bottom: 14px; }
+.funnel-row .stage-name { font-size: 13px; font-weight: 600; }
+.funnel-row .stage-rate { font-size: 11px; color: var(--muted); font-weight: 400; }
+.funnel-row .bar-track { background: var(--grid); border-radius: 6px; height: 26px; overflow: hidden; }
+.funnel-row .bar { background: var(--funnel); height: 100%; border-radius: 6px; min-width: 8px; transition: width .4s ease; }
+.funnel-row .count { font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ===== 问题列表 ===== */
+.issue { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+.issue .head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.issue .stage-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 20px;
+  background: var(--page); border: 1px solid var(--line); color: var(--ink-2);
+}
+.issue .stage-chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+.issue .detail { font-size: 13px; color: var(--ink); margin-bottom: 8px; }
+.issue .causes { display: flex; flex-wrap: wrap; gap: 6px; }
+.issue .cause { font-size: 12px; color: var(--ink-2); background: var(--page); border: 1px solid var(--line); padding: 2px 8px; border-radius: 6px; }
+
+.ok-card {
+  border: 1px solid var(--line); border-radius: 12px; padding: 20px;
+  display: flex; gap: 10px; align-items: flex-start;
+  background: var(--surface);
+}
+.ok-card .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--good); margin-top: 5px; flex: none; }
+.ok-card p { margin: 0; font-size: 13px; color: var(--ink-2); }
+
+/* ===== AI 报告 ===== */
+.ai-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.ai-settings label { font-size: 12px; color: var(--ink-2); display: flex; flex-direction: column; gap: 4px; }
+.ai-settings label.full { grid-column: 1 / -1; }
+.ai-settings select, .ai-settings input {
+  padding: 8px 10px; font-size: 13px; background: var(--page); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px; outline: none;
+}
+.ai-settings select:focus, .ai-settings input:focus { border-color: var(--accent); }
+
+.gen-btn {
+  background: var(--accent); color: #fff; border: none; padding: 9px 16px;
+  border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.gen-btn:hover { background: var(--accent-strong); }
+.gen-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+.gen-status { margin-top: 10px; font-size: 13px; color: var(--muted); }
+
+.report { margin-top: 14px; font-size: 14px; line-height: 1.75; color: var(--ink); }
+.report h3 { font-size: 16px; margin: 16px 0 6px; }
+.report h4 { font-size: 14px; margin: 12px 0 4px; }
+.report h5 { font-size: 13px; margin: 10px 0 4px; }
+.report p { margin: 6px 0; }
+.report ul, .report ol { margin: 6px 0; padding-left: 20px; }
+.report li { margin: 4px 0; }
+.report strong { color: var(--ink); }
+.report code { background: var(--page); border: 1px solid var(--line); padding: 0 4px; border-radius: 4px; font-size: 12.5px; }
+.report blockquote { border-left: 3px solid var(--accent); margin: 8px 0; padding: 2px 12px; color: var(--ink-2); }
+
+.prompt-details { margin-top: 16px; border-top: 1px dashed var(--line); padding-top: 12px; }
+.prompt-details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+.prompt-box {
+  background: var(--page); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 14px; font-size: 12.5px; color: var(--ink-2);
+  white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace; line-height: 1.7;
+  margin-top: 10px;
+}
+.copy-btn {
+  margin-top: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  padding: 8px 14px; border-radius: 9px; cursor: pointer; font-size: 13px;
+}
+.copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+.copy-btn.copied { border-color: var(--good); color: var(--good); }
+
+/* ===== 批量诊断 ===== */
+.tabs { display: flex; gap: 8px; margin: 4px 0 16px; border-bottom: 1px solid var(--line); }
+.tab {
+  border: none; background: none; color: var(--ink-2); font-size: 14px; font-weight: 600;
+  padding: 10px 16px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tab:hover { color: var(--ink); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.batch-grid { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
+@media (max-width: 860px) { .batch-grid { grid-template-columns: 1fr; } }
+
+.batch-grid textarea {
+  width: 100%; min-height: 200px; padding: 10px 12px; font-size: 13px;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace; line-height: 1.6;
+  background: var(--page); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 10px; outline: none; resize: vertical;
+}
+.batch-grid textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(42,120,214,.15); }
+.format-hint { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
+
+.batch-bench { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+@media (max-width: 560px) { .batch-bench { grid-template-columns: 1fr; } }
+
+.batch-summary { font-size: 13px; color: var(--ink-2); margin-bottom: 12px; }
+.batch-summary b { color: var(--ink); }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+table.store-table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 720px; }
+.store-table th, .store-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.store-table th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--page); }
+.store-table tr:last-child td { border-bottom: none; }
+.store-table td.num { font-variant-numeric: tabular-nums; }
+.store-table .store-name { font-weight: 600; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.store-table .stage-cell { color: var(--ink-2); max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 2px 8px; border-radius: 20px; border: 1px solid var(--line); color: var(--ink-2); }
+.badge .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.badge-focus .dot { background: var(--critical); }
+.badge-warn .dot { background: var(--warning); }
+.badge-ok .dot { background: var(--good); }
+
+.detail-btn { border: 1px solid var(--line); background: var(--surface); color: var(--accent); padding: 5px 10px; border-radius: 7px; font-size: 12px; cursor: pointer; }
+.detail-btn:hover { border-color: var(--accent); }
+
+#batchResults .empty { color: var(--muted); text-align: center; padding: 60px 20px; font-size: 14px; border: 1px dashed var(--line); border-radius: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="title">
+      <h1>外卖门店诊断</h1>
+      <p>录入一周数据 → 自动算指标 → 规则引擎定位问题环节 → AI 生成诊断报告</p>
+    </div>
+    <button id="themeBtn" type="button">切换主题</button>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" id="tabSingle" type="button">单店诊断</button>
+    <button class="tab" id="tabBatch" type="button">批量诊断（多店）</button>
+  </nav>
+
+  <main id="singleMode">
+    <!-- 左侧：录入表单 -->
+    <section class="panel">
+      <h2>录入本周数据</h2>
+      <div class="sub">单位：人数 / 元 / %</div>
+      <form id="form" onsubmit="return false;">
+        <div class="field">
+          <label>曝光人数 <span class="unit">（人）</span></label>
+          <input id="exposure" type="number" min="0" placeholder="如 10000">
+        </div>
+        <div class="field">
+          <label>入店人数 <span class="unit">（人）</span></label>
+          <input id="enter" type="number" min="0" placeholder="如 500">
+        </div>
+        <div class="field">
+          <label>下单人数 <span class="unit">（人）</span></label>
+          <input id="order" type="number" min="0" placeholder="如 80">
+        </div>
+        <div class="field">
+          <label>推广花费 <span class="unit">（元）</span></label>
+          <input id="adSpend" type="number" min="0" placeholder="如 300">
+        </div>
+        <div class="field">
+          <label>客单价 <span class="unit">（元）</span></label>
+          <input id="avgOrderValue" type="number" min="0" placeholder="如 35">
+        </div>
+
+        <div class="group-label">商圈同行（前 10%）基准</div>
+
+        <div class="field">
+          <label>同行平均曝光人数 <span class="unit">（人）</span></label>
+          <input id="benchmarkExposure" type="number" min="0" placeholder="如 20000">
+        </div>
+        <div class="field">
+          <label>同行前 10% 入店转化率 <span class="unit">（%）</span></label>
+          <input id="benchmarkEnterRate" type="number" min="0" step="0.1" placeholder="如 10">
+        </div>
+        <div class="field">
+          <label>同行前 10% 下单转化率 <span class="unit">（%）</span></label>
+          <input id="benchmarkOrderRate" type="number" min="0" step="0.1" placeholder="如 25">
+        </div>
+
+        <div class="actions">
+          <button type="button" id="sampleBad">示例A · 问题店</button>
+          <button type="button" id="sampleGood">示例B · 健康店</button>
+          <button type="submit" class="primary" id="runBtn">开始诊断</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 右侧：结果 -->
+    <section id="resultWrap">
+      <div id="empty">录入数据后点击「开始诊断」查看结果</div>
+      <div id="result" hidden>
+        <div class="summary" id="summary"></div>
+        <div class="tiles" id="tiles"></div>
+        <div class="panel" style="margin-bottom:14px">
+          <h2>转化漏斗</h2>
+          <div id="funnel"></div>
+        </div>
+        <div class="panel" style="margin-bottom:14px">
+          <h2>问题环节</h2>
+          <div id="issues"></div>
+        </div>
+        <div class="panel">
+          <h2>AI 诊断报告</h2>
+          <div class="sub">调 DeepSeek / 通义 生成报告。部署后 Key 由服务端环境变量提供、可留空；本机测试时才需填写。</div>
+
+          <div class="ai-settings">
+            <label>供应商
+              <select id="provider">
+                <option value="deepseek">DeepSeek</option>
+                <option value="qwen">通义千问</option>
+              </select>
+            </label>
+            <label>模型
+              <input id="model" type="text" placeholder="deepseek-chat">
+            </label>
+            <label class="full">API Key
+              <input id="apiKey" type="password" placeholder="本机测试时粘贴 Key（部署后留空即可）">
+            </label>
+          </div>
+
+          <button class="gen-btn" id="genBtn" type="button">生成 AI 报告</button>
+          <div class="gen-status" id="genStatus" hidden></div>
+          <div class="report" id="report" hidden></div>
+
+          <details class="prompt-details">
+            <summary>查看原始 Prompt（可手动复制到别处）</summary>
+            <div class="prompt-box" id="prompt"></div>
+            <button class="copy-btn" id="copyBtn" type="button">复制 Prompt</button>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <section id="batchMode" hidden>
+    <div class="batch-grid">
+      <div class="panel">
+        <h2>粘贴门店数据</h2>
+        <div class="sub">从美团后台「分店」页复制整表（带表头）粘贴，支持 Tab / 英文逗号分隔；「店名、曝光人数、入店人数」为必填列</div>
+        <textarea id="batchInput" placeholder="店名	曝光人数	入店人数	下单人数	推广花费	客单价&#10;城东旗舰店	18000	900	120	200	35"></textarea>
+        <div class="format-hint">可识别列名：店名/门店/店铺、曝光（人数）、入店/进店、下单/订单/成交、推广花费、客单价、营业额。多余的列会自动忽略。</div>
+
+        <div class="group-label">商圈同行（前 10%）基准 · 应用到全部门店</div>
+        <div class="batch-bench">
+          <div class="field">
+            <label>同行平均曝光 <span class="unit">（人）</span></label>
+            <input id="bBenchExposure" type="number" min="0" value="20000">
+          </div>
+          <div class="field">
+            <label>入店转化率 <span class="unit">（%）</span></label>
+            <input id="bBenchEnter" type="number" min="0" step="0.1" value="10">
+          </div>
+          <div class="field">
+            <label>下单转化率 <span class="unit">（%）</span></label>
+            <input id="bBenchOrder" type="number" min="0" step="0.1" value="25">
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="button" id="batchSample">填入示例数据（6 家店）</button>
+          <button type="button" class="primary" id="batchRun">批量诊断</button>
+        </div>
+      </div>
+
+      <div id="batchResults">
+        <div class="empty">粘贴数据后点击「批量诊断」</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* ===================== 规则引擎（核心逻辑） ===================== */
+
+// 阈值集中在此，方便后续调优
+const THRESHOLDS = {
+  enterRate: 0.08,      // 入店转化率基线 8%
+  orderRate: 0.20,      // 下单转化率基线 20%
+  exposureRatio: 0.8,   // 曝光低于同行均值 80% 视为问题
+  adSpendWarn: 100,     // 推广花费超过 100 元且入店转化低，判定投放效率差
+};
+
+// 各问题环节的展示色（身份色，非状态色）
+const STAGE_COLOR = {
+  '曝光': 'var(--blue)',
+  '入店': 'var(--orange)',
+  '下单': 'var(--aqua)',
+  '推广': 'var(--yellow)',
+};
+
+function diagnose(data) {
+  const issues = [];
+  const enterRate = data.exposure > 0 ? data.enter / data.exposure : 0;
+  const orderRate = data.enter > 0 ? data.order / data.enter : 0;
+  const orderPerExposure = data.exposure > 0 ? data.order / data.exposure : 0;
+
+  // 曝光环节
+  if (data.exposure < data.benchmarkExposure * THRESHOLDS.exposureRatio) {
+    issues.push({
+      stage: '曝光',
+      detail: '曝光量 ' + fmt(data.exposure) + '，低于同行均值 ' + fmt(data.benchmarkExposure) +
+              ' 的 80%，曝光是漏斗最上游的短板。',
+      causes: ['推广预算不足', '排名靠后', '品类竞争激烈'],
+    });
+  }
+
+  // 入店环节
+  if (enterRate < THRESHOLDS.enterRate) {
+    issues.push({
+      stage: '入店',
+      detail: '入店转化率 ' + pct(enterRate) + '，低于 8% 基线（同行前 10% 约 ' +
+              pct(data.benchmarkEnterRate) + '），曝光进来的人没被「勾进来」。',
+      causes: ['头图吸引力不足', '评分偏低', '满减力度不够'],
+    });
+  }
+
+  // 下单环节
+  if (orderRate < THRESHOLDS.orderRate) {
+    issues.push({
+      stage: '下单',
+      detail: '下单转化率 ' + pct(orderRate) + '，低于 20% 基线（同行前 10% 约 ' +
+              pct(data.benchmarkOrderRate) + '），进店的人没被「留下来点单」。',
+      causes: ['菜单结构不合理', '套餐性价比低', '差评影响'],
+    });
+  }
+
+  // 推广效率
+  if (data.adSpend > THRESHOLDS.adSpendWarn && enterRate < THRESHOLDS.enterRate) {
+    issues.push({
+      stage: '推广',
+      detail: '推广花费 ' + data.adSpend + ' 元，但入店转化率仅 ' + pct(enterRate) +
+              '，钱花了没换来进店，投放效率低。',
+      causes: ['出价过高', '门店质量分低'],
+    });
+  }
+
+  return { issues, metrics: { enterRate, orderRate, orderPerExposure } };
+}
+
+/* ===================== 工具函数 ===================== */
+function fmt(n) { return Number(n || 0).toLocaleString('zh-CN'); }
+function pct(r) { return (r * 100).toFixed(1) + '%'; }
+
+function rateStatus(rate, threshold) {
+  if (rate >= threshold) return { level: 'good', label: '达标' };
+  if (rate >= threshold * 0.8) return { level: 'warning', label: '偏低' };
+  return { level: 'critical', label: '严重偏低' };
+}
+
+function buildPrompt(data, issues) {
+  const lines = issues.map(function (it, i) {
+    return '问题' + (i + 1) + '（' + it.stage + '环节）：\n' +
+           '  异常指标：' + it.detail.replace(/，[^，]*$/,'') + '\n' +
+           '  可能原因：' + it.causes.join('、');
+  }).join('\n\n');
+  return '你是外卖代运营的运营顾问。以下是一家加盟店的诊断结果：\n\n' +
+         lines + '\n\n' +
+         '请生成一份给加盟商看的诊断报告：\n' +
+         '1. 一句话说清核心问题\n' +
+         '2. 用通俗语言解释数据含义\n' +
+         '3. 给 3 条可执行动作，每条包含：做什么 + 为什么 + 预期效果\n' +
+         '4. 语气专业但不吓人';
+}
+
+/* ===================== Markdown 渲染（轻量） ===================== */
+function inline(s) {
+  return s
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+function mdToHtml(md) {
+  const esc = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const lines = esc.split('\n');
+  let html = '', inList = '';
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const h = line.match(/^(#{1,3})\s+(.*)$/);
+    const ul = line.match(/^\s*[-*]\s+(.*)$/);
+    const ol = line.match(/^\s*\d+[.)]\s+(.*)$/);
+    const bq = line.match(/^\s*>\s?(.*)$/);
+    if (h) {
+      if (inList) { html += '</' + inList + '>'; inList = ''; }
+      const lv = Math.min(3, h[1].length) + 2; // # → h3
+      html += '<h' + lv + '>' + inline(h[2]) + '</h' + lv + '>';
+    } else if (ul) {
+      if (inList !== 'ul') { if (inList) html += '</' + inList + '>'; html += '<ul>'; inList = 'ul'; }
+      html += '<li>' + inline(ul[1]) + '</li>';
+    } else if (ol) {
+      if (inList !== 'ol') { if (inList) html += '</' + inList + '>'; html += '<ol>'; inList = 'ol'; }
+      html += '<li>' + inline(ol[1]) + '</li>';
+    } else if (bq) {
+      if (inList) { html += '</' + inList + '>'; inList = ''; }
+      html += '<blockquote>' + inline(bq[1]) + '</blockquote>';
+    } else if (line.trim() === '') {
+      if (inList) { html += '</' + inList + '>'; inList = ''; }
+    } else {
+      if (inList) { html += '</' + inList + '>'; inList = ''; }
+      html += '<p>' + inline(line) + '</p>';
+    }
+  }
+  if (inList) html += '</' + inList + '>';
+  return html;
+}
+
+/* ===================== 渲染 ===================== */
+const $ = function (id) { return document.getElementById(id); };
+
+function readInputs() {
+  return {
+    exposure:          +$('exposure').value || 0,
+    enter:             +$('enter').value || 0,
+    order:             +$('order').value || 0,
+    adSpend:           +$('adSpend').value || 0,
+    avgOrderValue:     +$('avgOrderValue').value || 0,
+    benchmarkExposure: +$('benchmarkExposure').value || 0,
+    benchmarkEnterRate:(+$('benchmarkEnterRate').value || 0) / 100,
+    benchmarkOrderRate:(+$('benchmarkOrderRate').value || 0) / 100,
+  };
+}
+
+function render() {
+  const data = readInputs();
+
+  // 基础校验
+  if (data.exposure <= 0 || data.enter <= 0) {
+    alert('请先填「曝光人数」和「入店人数」（需大于 0）');
+    return;
+  }
+
+  const { issues, metrics } = diagnose(data);
+
+  $('empty').hidden = true;
+  $('result').hidden = false;
+  $('report').hidden = true;      // 重新诊断后隐藏旧报告
+
+  // 数据摘要
+  $('summary').innerHTML =
+    '本周：曝光 <b>' + fmt(data.exposure) + '</b> → 入店 <b>' + fmt(data.enter) +
+    '</b> → 下单 <b>' + fmt(data.order) + '</b>　·　客单价 <b>' + fmt(data.avgOrderValue) + ' 元</b>';
+
+  // 指标 tiles
+  const tiles = [
+    { label: '入店转化率', value: pct(metrics.enterRate), ref: '基线 8% · 同行前10% ' + pct(data.benchmarkEnterRate), status: rateStatus(metrics.enterRate, THRESHOLDS.enterRate) },
+    { label: '下单转化率', value: pct(metrics.orderRate), ref: '基线 20% · 同行前10% ' + pct(data.benchmarkOrderRate), status: rateStatus(metrics.orderRate, THRESHOLDS.orderRate) },
+    { label: '曝光→下单整体', value: pct(metrics.orderPerExposure), ref: '曝光到成交的总效率', status: null },
+  ];
+  $('tiles').innerHTML = tiles.map(function (t) {
+    const statusHtml = t.status
+      ? '<span class="status"><span class="dot" style="background:var(--' + t.status.level + ')"></span>' + t.status.label + '</span>'
+      : '';
+    return '<div class="tile"><div class="label">' + t.label + '</div>' +
+           '<div class="value">' + t.value + '</div>' +
+           '<div class="ref">' + t.ref + '</div>' + statusHtml + '</div>';
+  }).join('');
+
+  // 漏斗
+  const stages = [
+    { name: '曝光', count: data.exposure, rate: null },
+    { name: '入店', count: data.enter, rate: pct(metrics.enterRate) },
+    { name: '下单', count: data.order, rate: pct(metrics.orderRate) },
+  ];
+  const max = data.exposure || 1;
+  $('funnel').innerHTML = stages.map(function (s) {
+    const width = Math.max(2, (s.count / max) * 100);
+    const rateHtml = s.rate ? '<div class="stage-rate">转化 ' + s.rate + '</div>' : '';
+    return '<div class="funnel-row">' +
+           '<div><div class="stage-name">' + s.name + '</div>' + rateHtml + '</div>' +
+           '<div class="bar-track"><div class="bar" style="width:' + width.toFixed(1) + '%"></div></div>' +
+           '<div class="count">' + fmt(s.count) + ' 人</div>' +
+           '</div>';
+  }).join('');
+
+  // 问题列表
+  if (issues.length === 0) {
+    $('issues').innerHTML =
+      '<div class="ok-card"><span class="dot"></span><p>未发现明显问题环节 —— 各项指标均在健康区间。保持现状，继续观察。</p></div>';
+  } else {
+    $('issues').innerHTML = issues.map(function (it) {
+      const color = STAGE_COLOR[it.stage] || 'var(--muted)';
+      const causes = it.causes.map(function (c) { return '<span class="cause">' + c + '</span>'; }).join('');
+      return '<div class="issue">' +
+             '<div class="head"><span class="stage-chip"><span class="dot" style="background:' + color + '"></span>' + it.stage + '环节</span></div>' +
+             '<div class="detail">' + it.detail + '</div>' +
+             '<div class="causes">' + causes + '</div>' +
+             '</div>';
+    }).join('');
+  }
+
+  // AI prompt（原始文本）
+  $('prompt').textContent = issues.length ? buildPrompt(data, issues) : '（无问题环节，无需生成诊断报告）';
+}
+
+/* ===================== AI 报告调用 ===================== */
+const DEFAULTS = { deepseek: 'deepseek-chat', qwen: 'qwen-plus' };
+const SETTINGS_KEY = 'shopdx-settings';
+
+function loadSettings() {
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch (e) {}
+  const p = s.provider || 'deepseek';
+  $('provider').value = p;
+  $('model').value = s.model || DEFAULTS[p] || '';
+  $('apiKey').value = s.apiKey || '';
+}
+function saveSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+    provider: $('provider').value,
+    model: $('model').value,
+    apiKey: $('apiKey').value,
+  }));
+}
+
+$('genBtn').addEventListener('click', function () {
+  const prompt = $('prompt').textContent;
+  if (!prompt || prompt.indexOf('无问题环节') >= 0) {
+    alert('当前没有可诊断的问题，无需生成报告');
+    return;
+  }
+  const apiKey = $('apiKey').value.trim();
+  saveSettings();
+
+  const btn = $('genBtn');
+  const status = $('genStatus');
+  const report = $('report');
+  btn.disabled = true;
+  status.hidden = false;
+  status.textContent = '正在生成报告…（约 10–30 秒，请稍候）';
+  report.hidden = true;
+
+  fetch('/api/report', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      provider: $('provider').value,
+      model: $('model').value,
+      apiKey: apiKey,
+      prompt: prompt,
+    }),
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      btn.disabled = false;
+      status.hidden = true;
+      if (!data.ok) { alert('生成失败：' + data.error); return; }
+      report.hidden = false;
+      report.innerHTML = mdToHtml(data.report);
+    })
+    .catch(function (e) {
+      btn.disabled = false;
+      status.hidden = true;
+      alert('请求失败：' + e + '\n\n如果直接双击打开的 index.html，请改用：\n  python main.py 然后访问 http://localhost:8000');
+    });
+});
+
+/* ===================== 事件 ===================== */
+$('form').addEventListener('submit', render);
+$('sampleBad').addEventListener('click', function () {
+  $('exposure').value = 10000; $('enter').value = 500; $('order').value = 80;
+  $('adSpend').value = 300; $('avgOrderValue').value = 35;
+  $('benchmarkExposure').value = 20000; $('benchmarkEnterRate').value = 10; $('benchmarkOrderRate').value = 25;
+  render();
+});
+$('sampleGood').addEventListener('click', function () {
+  $('exposure').value = 15000; $('enter').value = 1500; $('order').value = 375;
+  $('adSpend').value = 50; $('avgOrderValue').value = 38;
+  $('benchmarkExposure').value = 10000; $('benchmarkEnterRate').value = 8; $('benchmarkOrderRate').value = 22;
+  render();
+});
+
+$('provider').addEventListener('change', function () {
+  const p = $('provider').value;
+  const cur = $('model').value;
+  if (!cur || cur === DEFAULTS.deepseek || cur === DEFAULTS.qwen) {
+    $('model').value = DEFAULTS[p];
+  }
+  saveSettings();
+});
+$('model').addEventListener('change', saveSettings);
+$('apiKey').addEventListener('change', saveSettings);
+
+$('copyBtn').addEventListener('click', function () {
+  const text = $('prompt').textContent;
+  const btn = $('copyBtn');
+  const done = function () {
+    btn.textContent = '已复制 ✓'; btn.classList.add('copied');
+    setTimeout(function () { btn.textContent = '复制 Prompt'; btn.classList.remove('copied'); }, 1500);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(function () { fallbackCopy(text, done); });
+  } else {
+    fallbackCopy(text, done);
+  }
+});
+function fallbackCopy(text, done) {
+  const ta = document.createElement('textarea');
+  ta.value = text; document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); done(); } catch (e) { alert('复制失败，请手动复制'); }
+  document.body.removeChild(ta);
+}
+
+// 主题切换
+const root = document.documentElement;
+if (localStorage.getItem('theme')) root.dataset.theme = localStorage.getItem('theme');
+$('themeBtn').addEventListener('click', function () {
+  const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+  root.dataset.theme = next;
+  localStorage.setItem('theme', next);
+});
+
+/* ===================== 批量诊断 ===================== */
+let lastBatchRows = [];
+
+function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+function num(v) {
+  if (v == null) return 0;
+  const n = parseFloat(String(v).replace(/[,，￥¥\s]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+const COL_ALIAS = {
+  name: ['店名', '门店', '店铺', '名称', '商家', '分店'],
+  exposure: ['曝光'],
+  enter: ['入店', '进店'],
+  order: ['下单', '订单', '成交'],
+  adSpend: ['推广', '花费', '广告'],
+  avgOrderValue: ['客单'],
+};
+function matchCol(h, keys, isCount) {
+  for (let i = 0; i < keys.length; i++) {
+    if (h.indexOf(keys[i]) >= 0) {
+      if (isCount && h.indexOf('率') >= 0) return false; // 转化率列不是人数
+      return true;
+    }
+  }
+  return false;
+}
+function mapColumns(header) {
+  const map = {};
+  header.forEach(function (h, idx) {
+    const hh = h.trim().toLowerCase();
+    if (map.name == null && matchCol(hh, COL_ALIAS.name, false)) map.name = idx;
+    else if (map.exposure == null && matchCol(hh, COL_ALIAS.exposure, true)) map.exposure = idx;
+    else if (map.enter == null && matchCol(hh, COL_ALIAS.enter, true)) map.enter = idx;
+    else if (map.order == null && matchCol(hh, COL_ALIAS.order, true)) map.order = idx;
+    else if (map.adSpend == null && matchCol(hh, COL_ALIAS.adSpend, false)) map.adSpend = idx;
+    else if (map.avgOrderValue == null && matchCol(hh, COL_ALIAS.avgOrderValue, false)) map.avgOrderValue = idx;
+  });
+  return map;
+}
+function detectDelim(firstLine) {
+  if (firstLine.indexOf('\t') >= 0) return '\t';
+  if (firstLine.indexOf(',') >= 0) return ',';
+  if (firstLine.indexOf(';') >= 0) return ';';
+  return null;
+}
+function parseStores(text) {
+  const lines = text.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+  if (!lines.length) return { stores: [], error: '内容为空' };
+  const delim = detectDelim(lines[0]);
+  if (!delim) return { stores: [], error: '没识别到分隔符（请用 Tab 或英文逗号分隔列）' };
+
+  const rows = lines.map(function (l) {
+    return l.split(delim).map(function (c) { return c.trim(); });
+  });
+
+  let headerIdx = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (/店名|门店|店铺|曝光|入店|下单|推广|客单/.test(rows[i].join(''))) { headerIdx = i; break; }
+  }
+  if (headerIdx < 0) return { stores: [], error: '没找到表头（需包含「店名、曝光、入店」等列名）' };
+
+  const map = mapColumns(rows[headerIdx]);
+  if (map.name == null || map.exposure == null || map.enter == null) {
+    return { stores: [], error: '表头缺少必填列：店名 / 曝光人数 / 入店人数' };
+  }
+
+  const stores = [];
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const r = rows[i];
+    const name = (r[map.name] || '').trim();
+    const exposure = num(r[map.exposure]);
+    const enter = num(r[map.enter]);
+    if (!name || exposure <= 0 || enter <= 0) continue;
+    stores.push({
+      name: name,
+      exposure: exposure,
+      enter: enter,
+      order: map.order != null ? num(r[map.order]) : 0,
+      adSpend: map.adSpend != null ? num(r[map.adSpend]) : 0,
+      avgOrderValue: map.avgOrderValue != null ? num(r[map.avgOrderValue]) : 0,
+    });
+  }
+  if (!stores.length) return { stores: [], error: '表头找到了，但下面没有解析出有效数据行' };
+  return { stores: stores, error: null };
+}
+
+function storeScore(metrics, data) {
+  let s = 0;
+  if (data.benchmarkExposure > 0 && data.exposure < data.benchmarkExposure * THRESHOLDS.exposureRatio) {
+    s += 1 + Math.max(0, 1 - data.exposure / (data.benchmarkExposure * THRESHOLDS.exposureRatio));
+  }
+  if (metrics.enterRate < THRESHOLDS.enterRate) s += 1 + (THRESHOLDS.enterRate - metrics.enterRate) / THRESHOLDS.enterRate;
+  if (metrics.orderRate < THRESHOLDS.orderRate) s += 1 + (THRESHOLDS.orderRate - metrics.orderRate) / THRESHOLDS.orderRate;
+  return s;
+}
+
+function runBatch() {
+  const parsed = parseStores($('batchInput').value);
+  if (parsed.error) { alert(parsed.error); return; }
+
+  const bench = {
+    benchmarkExposure: num($('bBenchExposure').value),
+    benchmarkEnterRate: num($('bBenchEnter').value) / 100,
+    benchmarkOrderRate: num($('bBenchOrder').value) / 100,
+  };
+
+  lastBatchRows = parsed.stores.map(function (s) {
+    const data = Object.assign({}, bench, s);
+    const d = diagnose(data);
+    return { name: s.name, data: data, issues: d.issues, metrics: d.metrics, score: storeScore(d.metrics, data) };
+  }).sort(function (a, b) { return b.score - a.score; });
+
+  const badCount = lastBatchRows.filter(function (r) { return r.issues.length > 0; }).length;
+  const focusCount = lastBatchRows.filter(function (r) { return r.issues.length >= 2; }).length;
+
+  let html = '<div class="batch-summary">共 <b>' + lastBatchRows.length + '</b> 家店，' +
+             '<b>' + badCount + '</b> 家存在异常，<b>' + focusCount + '</b> 家建议重点帮扶（按严重度排序）</div>';
+  html += '<div class="table-wrap"><table class="store-table"><thead><tr>' +
+          '<th>#</th><th>店名</th><th>曝光</th><th>入店转化</th><th>下单转化</th><th>问题数</th><th>问题环节</th><th>状态</th><th></th>' +
+          '</tr></thead><tbody>';
+
+  html += lastBatchRows.map(function (r, i) {
+    let badge;
+    if (r.issues.length >= 2) badge = '<span class="badge badge-focus"><span class="dot"></span>重点帮扶</span>';
+    else if (r.issues.length === 1) badge = '<span class="badge badge-warn"><span class="dot"></span>有异常</span>';
+    else badge = '<span class="badge badge-ok"><span class="dot"></span>正常</span>';
+    const stages = r.issues.map(function (it) { return it.stage; }).join('、') || '—';
+    return '<tr>' +
+      '<td class="num">' + (i + 1) + '</td>' +
+      '<td class="store-name" title="' + esc(r.name) + '">' + esc(r.name) + '</td>' +
+      '<td class="num">' + fmt(r.data.exposure) + '</td>' +
+      '<td class="num">' + pct(r.metrics.enterRate) + '</td>' +
+      '<td class="num">' + pct(r.metrics.orderRate) + '</td>' +
+      '<td class="num">' + r.issues.length + '</td>' +
+      '<td class="stage-cell" title="' + esc(stages) + '">' + esc(stages) + '</td>' +
+      '<td>' + badge + '</td>' +
+      '<td><button class="detail-btn" data-idx="' + i + '">详情</button></td>' +
+      '</tr>';
+  }).join('');
+
+  html += '</tbody></table></div>';
+  $('batchResults').innerHTML = html;
+}
+
+function fillFormFromData(data) {
+  $('exposure').value = data.exposure;
+  $('enter').value = data.enter;
+  $('order').value = data.order;
+  $('adSpend').value = data.adSpend;
+  $('avgOrderValue').value = data.avgOrderValue;
+  $('benchmarkExposure').value = data.benchmarkExposure;
+  $('benchmarkEnterRate').value = Math.round(data.benchmarkEnterRate * 1000) / 10;
+  $('benchmarkOrderRate').value = Math.round(data.benchmarkOrderRate * 1000) / 10;
+}
+
+function switchTab(mode) {
+  const single = mode === 'single';
+  $('singleMode').hidden = !single;
+  $('batchMode').hidden = single;
+  $('tabSingle').classList.toggle('active', single);
+  $('tabBatch').classList.toggle('active', !single);
+}
+
+const BATCH_SAMPLE = [
+  '店名\t曝光人数\t入店人数\t下单人数\t推广花费\t客单价',
+  '城东旗舰店\t18000\t900\t120\t200\t35',
+  '城北店\t3000\t150\t15\t500\t30',
+  '城西店\t12000\t960\t240\t80\t38',
+  '高新区店\t16000\t1280\t192\t60\t42',
+  '城南店\t25000\t2500\t750\t100\t40',
+  '大学城店\t20000\t2400\t720\t40\t36',
+].join('\n');
+
+$('tabSingle').addEventListener('click', function () { switchTab('single'); });
+$('tabBatch').addEventListener('click', function () { switchTab('batch'); });
+$('batchRun').addEventListener('click', runBatch);
+$('batchSample').addEventListener('click', function () { $('batchInput').value = BATCH_SAMPLE; runBatch(); });
+$('batchResults').addEventListener('click', function (e) {
+  const btn = e.target.closest('.detail-btn');
+  if (!btn) return;
+  const r = lastBatchRows[+btn.dataset.idx];
+  if (!r) return;
+  fillFormFromData(r.data);
+  switchTab('single');
+  render();
+});
+
+// 初始化
+loadSettings();
+</script>
+</body>
+</html>
