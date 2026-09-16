@@ -49,6 +49,7 @@ PROVIDERS = {
 SYSTEM_PROMPT = (
     "你是外卖代运营的资深运营顾问，擅长把数据问题翻译成加盟商听得懂的诊断报告。"
     "输出使用 Markdown，语气专业但不吓人。"
+    "不要使用表格（不要出现竖线 | 分隔符），用标题、列表和加粗即可。"
 )
 
 CONTENT_TYPES = {
@@ -145,7 +146,7 @@ class Handler(BaseHTTPRequestHandler):
         prompt = body.get("prompt") or ""
 
         if not api_key:
-            self._send_json(400, {"ok": False, "error": "请填写 API Key，或设置环境变量 LLM_API_KEY"})
+            self._send_json(400, {"ok": False, "error": "服务端未配置 LLM_API_KEY 环境变量"})
             return
         if not prompt:
             self._send_json(400, {"ok": False, "error": "缺少诊断内容（请先点击「开始诊断」）"})

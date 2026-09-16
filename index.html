@@ -59,6 +59,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; padding: 0; }
 body {
   font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
@@ -175,15 +176,6 @@ main { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: 
 .ok-card p { margin: 0; font-size: 13px; color: var(--ink-2); }
 
 /* ===== AI 报告 ===== */
-.ai-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-.ai-settings label { font-size: 12px; color: var(--ink-2); display: flex; flex-direction: column; gap: 4px; }
-.ai-settings label.full { grid-column: 1 / -1; }
-.ai-settings select, .ai-settings input {
-  padding: 8px 10px; font-size: 13px; background: var(--page); color: var(--ink);
-  border: 1px solid var(--line); border-radius: 8px; outline: none;
-}
-.ai-settings select:focus, .ai-settings input:focus { border-color: var(--accent); }
-
 .gen-btn {
   background: var(--accent); color: #fff; border: none; padding: 9px 16px;
   border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer;
@@ -193,26 +185,24 @@ main { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: 
 
 .gen-status { margin-top: 10px; font-size: 13px; color: var(--muted); }
 
-.report { margin-top: 14px; font-size: 14px; line-height: 1.75; color: var(--ink); }
-.report h3 { font-size: 16px; margin: 16px 0 6px; }
-.report h4 { font-size: 14px; margin: 12px 0 4px; }
+.report { margin-top: 14px; font-size: 14px; line-height: 1.8; color: var(--ink); }
+.report h3 { font-size: 16px; margin: 20px 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.report h4 { font-size: 14px; margin: 14px 0 6px; }
 .report h5 { font-size: 13px; margin: 10px 0 4px; }
-.report p { margin: 6px 0; }
-.report ul, .report ol { margin: 6px 0; padding-left: 20px; }
-.report li { margin: 4px 0; }
+.report p { margin: 8px 0; color: var(--ink-2); }
+.report ul, .report ol { margin: 8px 0; padding-left: 22px; color: var(--ink-2); }
+.report li { margin: 6px 0; }
+.report li::marker { color: var(--accent); font-weight: 700; }
 .report strong { color: var(--ink); }
 .report code { background: var(--page); border: 1px solid var(--line); padding: 0 4px; border-radius: 4px; font-size: 12.5px; }
 .report blockquote { border-left: 3px solid var(--accent); margin: 8px 0; padding: 2px 12px; color: var(--ink-2); }
+.report table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13px; }
+.report th, .report td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; }
+.report th { background: var(--page); color: var(--muted); font-weight: 600; }
+.report pre { background: var(--page); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; overflow-x: auto; margin: 10px 0; }
+.report pre code { background: none; border: none; padding: 0; }
+.report hr { border: none; border-top: 1px solid var(--line); margin: 12px 0; }
 
-.prompt-details { margin-top: 16px; border-top: 1px dashed var(--line); padding-top: 12px; }
-.prompt-details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
-.prompt-box {
-  background: var(--page); border: 1px solid var(--line); border-radius: 10px;
-  padding: 12px 14px; font-size: 12.5px; color: var(--ink-2);
-  white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto;
-  font-family: ui-monospace, "SF Mono", Consolas, monospace; line-height: 1.7;
-  margin-top: 10px;
-}
 .copy-btn {
   margin-top: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
   padding: 8px 14px; border-radius: 9px; cursor: pointer; font-size: 13px;
@@ -349,32 +339,12 @@ table.store-table { border-collapse: collapse; width: 100%; font-size: 13px; min
         </div>
         <div class="panel">
           <h2>AI 诊断报告</h2>
-          <div class="sub">调 DeepSeek / 通义 生成报告。部署后 Key 由服务端环境变量提供、可留空；本机测试时才需填写。</div>
-
-          <div class="ai-settings">
-            <label>供应商
-              <select id="provider">
-                <option value="deepseek">DeepSeek</option>
-                <option value="qwen">通义千问</option>
-              </select>
-            </label>
-            <label>模型
-              <input id="model" type="text" placeholder="deepseek-chat">
-            </label>
-            <label class="full">API Key
-              <input id="apiKey" type="password" placeholder="本机测试时粘贴 Key（部署后留空即可）">
-            </label>
-          </div>
+          <div class="sub">自动生成给加盟商看的诊断报告，可直接复制转发</div>
 
           <button class="gen-btn" id="genBtn" type="button">生成 AI 报告</button>
           <div class="gen-status" id="genStatus" hidden></div>
           <div class="report" id="report" hidden></div>
-
-          <details class="prompt-details">
-            <summary>查看原始 Prompt（可手动复制到别处）</summary>
-            <div class="prompt-box" id="prompt"></div>
-            <button class="copy-btn" id="copyBtn" type="button">复制 Prompt</button>
-          </details>
+          <button class="copy-btn" id="copyReportBtn" type="button" hidden>复制报告</button>
         </div>
       </div>
     </section>
@@ -503,11 +473,11 @@ function buildPrompt(data, issues) {
   }).join('\n\n');
   return '你是外卖代运营的运营顾问。以下是一家加盟店的诊断结果：\n\n' +
          lines + '\n\n' +
-         '请生成一份给加盟商看的诊断报告：\n' +
-         '1. 一句话说清核心问题\n' +
-         '2. 用通俗语言解释数据含义\n' +
-         '3. 给 3 条可执行动作，每条包含：做什么 + 为什么 + 预期效果\n' +
-         '4. 语气专业但不吓人';
+         '请用下面的结构输出报告（用「## 标题 + 列表」的写法，禁止使用表格和竖线 |，不要写 ``` 代码块）：\n' +
+         '## 一句话诊断\n用一句话说清核心问题。\n' +
+         '## 数据是什么意思\n用 2-3 句通俗的话解释上面的数据含义。\n' +
+         '## 建议动作\n写 3 条可执行动作，每条一行，格式：**做什么** —— 为什么，预期效果。\n' +
+         '语气专业但不吓人。';
 }
 
 /* ===================== Markdown 渲染（轻量） ===================== */
@@ -516,20 +486,58 @@ function inline(s) {
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/`([^`]+)`/g, '<code>$1</code>');
 }
+function splitRow(line) {
+  return line.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(function (c) { return c.trim(); });
+}
+function isTableSep(line) {
+  return line.indexOf('|') >= 0 && line.indexOf('-') >= 0 && /^[\s|:\-]+$/.test(line);
+}
 function mdToHtml(md) {
   const esc = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const lines = esc.split('\n');
   let html = '', inList = '';
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const h = line.match(/^(#{1,3})\s+(.*)$/);
+    const trimmed = line.trim();
+
+    // 代码块
+    if (trimmed.startsWith('```')) {
+      if (inList) { html += '</' + inList + '>'; inList = ''; }
+      let code = '';
+      i++;
+      while (i < lines.length && !lines[i].trim().startsWith('```')) { code += lines[i] + '\n'; i++; }
+      html += '<pre><code>' + code + '</code></pre>';
+      continue;
+    }
+
+    // 表格（兜底：即便模型没听话也渲染成真正的表格，而不是漏出竖线）
+    if (trimmed.indexOf('|') >= 0 && i + 1 < lines.length && isTableSep(lines[i + 1])) {
+      if (inList) { html += '</' + inList + '>'; inList = ''; }
+      const head = splitRow(line).map(function (c) { return '<th>' + inline(c) + '</th>'; }).join('');
+      html += '<table><thead><tr>' + head + '</tr></thead><tbody>';
+      i++; // 跳过分隔行
+      while (i + 1 < lines.length && lines[i + 1].trim().indexOf('|') >= 0 && lines[i + 1].trim() !== '') {
+        i++;
+        const cells = splitRow(lines[i]).map(function (c) { return '<td>' + inline(c) + '</td>'; }).join('');
+        html += '<tr>' + cells + '</tr>';
+      }
+      html += '</tbody></table>';
+      continue;
+    }
+
+    const h = line.match(/^(#{1,4})\s+(.*)$/);
     const ul = line.match(/^\s*[-*]\s+(.*)$/);
     const ol = line.match(/^\s*\d+[.)]\s+(.*)$/);
     const bq = line.match(/^\s*>\s?(.*)$/);
+    const hr = /^\s*([-*_]\s*){3,}$/.test(line);
+
     if (h) {
       if (inList) { html += '</' + inList + '>'; inList = ''; }
       const lv = Math.min(3, h[1].length) + 2; // # → h3
       html += '<h' + lv + '>' + inline(h[2]) + '</h' + lv + '>';
+    } else if (hr && !ul) {
+      if (inList) { html += '</' + inList + '>'; inList = ''; }
+      html += '<hr>';
     } else if (ul) {
       if (inList !== 'ul') { if (inList) html += '</' + inList + '>'; html += '<ul>'; inList = 'ul'; }
       html += '<li>' + inline(ul[1]) + '</li>';
@@ -539,7 +547,7 @@ function mdToHtml(md) {
     } else if (bq) {
       if (inList) { html += '</' + inList + '>'; inList = ''; }
       html += '<blockquote>' + inline(bq[1]) + '</blockquote>';
-    } else if (line.trim() === '') {
+    } else if (trimmed === '') {
       if (inList) { html += '</' + inList + '>'; inList = ''; }
     } else {
       if (inList) { html += '</' + inList + '>'; inList = ''; }
@@ -635,37 +643,18 @@ function render() {
   }
 
   // AI prompt（原始文本）
-  $('prompt').textContent = issues.length ? buildPrompt(data, issues) : '（无问题环节，无需生成诊断报告）';
+  currentPrompt = issues.length ? buildPrompt(data, issues) : '（无问题环节，无需生成诊断报告）';
 }
 
 /* ===================== AI 报告调用 ===================== */
-const DEFAULTS = { deepseek: 'deepseek-chat', qwen: 'qwen-plus' };
-const SETTINGS_KEY = 'shopdx-settings';
-
-function loadSettings() {
-  let s = {};
-  try { s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch (e) {}
-  const p = s.provider || 'deepseek';
-  $('provider').value = p;
-  $('model').value = s.model || DEFAULTS[p] || '';
-  $('apiKey').value = s.apiKey || '';
-}
-function saveSettings() {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-    provider: $('provider').value,
-    model: $('model').value,
-    apiKey: $('apiKey').value,
-  }));
-}
+let currentPrompt = '';
 
 $('genBtn').addEventListener('click', function () {
-  const prompt = $('prompt').textContent;
+  const prompt = currentPrompt;
   if (!prompt || prompt.indexOf('无问题环节') >= 0) {
     alert('当前没有可诊断的问题，无需生成报告');
     return;
   }
-  const apiKey = $('apiKey').value.trim();
-  saveSettings();
 
   const btn = $('genBtn');
   const status = $('genStatus');
@@ -674,16 +663,12 @@ $('genBtn').addEventListener('click', function () {
   status.hidden = false;
   status.textContent = '正在生成报告…（约 10–30 秒，请稍候）';
   report.hidden = true;
+  $('copyReportBtn').hidden = true;
 
   fetch('/api/report', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      provider: $('provider').value,
-      model: $('model').value,
-      apiKey: apiKey,
-      prompt: prompt,
-    }),
+    body: JSON.stringify({ prompt: prompt }),
   })
     .then(function (r) { return r.json(); })
     .then(function (data) {
@@ -692,6 +677,7 @@ $('genBtn').addEventListener('click', function () {
       if (!data.ok) { alert('生成失败：' + data.error); return; }
       report.hidden = false;
       report.innerHTML = mdToHtml(data.report);
+      $('copyReportBtn').hidden = false;
     })
     .catch(function (e) {
       btn.disabled = false;
@@ -715,23 +701,12 @@ $('sampleGood').addEventListener('click', function () {
   render();
 });
 
-$('provider').addEventListener('change', function () {
-  const p = $('provider').value;
-  const cur = $('model').value;
-  if (!cur || cur === DEFAULTS.deepseek || cur === DEFAULTS.qwen) {
-    $('model').value = DEFAULTS[p];
-  }
-  saveSettings();
-});
-$('model').addEventListener('change', saveSettings);
-$('apiKey').addEventListener('change', saveSettings);
-
-$('copyBtn').addEventListener('click', function () {
-  const text = $('prompt').textContent;
-  const btn = $('copyBtn');
+$('copyReportBtn').addEventListener('click', function () {
+  const text = $('report').innerText;
+  const btn = $('copyReportBtn');
   const done = function () {
     btn.textContent = '已复制 ✓'; btn.classList.add('copied');
-    setTimeout(function () { btn.textContent = '复制 Prompt'; btn.classList.remove('copied'); }, 1500);
+    setTimeout(function () { btn.textContent = '复制报告'; btn.classList.remove('copied'); }, 1500);
   };
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(done).catch(function () { fallbackCopy(text, done); });
@@ -944,8 +919,6 @@ $('batchResults').addEventListener('click', function (e) {
   render();
 });
 
-// 初始化
-loadSettings();
 </script>
 </body>
 </html>
